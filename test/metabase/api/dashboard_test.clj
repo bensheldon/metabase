@@ -441,3 +441,31 @@
     [(dissoc ((user->client :crowberto) :post 200 (format "dashboard/%d/revert" dashboard-id) {:revision_id revision-id}) :id :timestamp)
      (doall (for [revision ((user->client :crowberto) :get 200 (format "dashboard/%d/revisions" dashboard-id))]
               (dissoc revision :timestamp :id)))]))
+
+
+;;; +----------------------------------------------------------------------------------------------------------------------------------------------------------------+
+;;; |                                                                    PUBLIC SHARING ENDPOINTS                                                                    |
+;;; +----------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+;;; ------------------------------------------------------------ POST /api/dashboard/:id/public_link ------------------------------------------------------------
+
+;; TODO - Test that we *cannot* share a Dashboard if we aren't admins
+
+;; TODO - Test that we *cannot* share a Dashboard if the setting is disabled
+
+;; TODO - Test that we get a 404 if the Dashboard doesn't exist
+
+;; TODO - Test that we can share a Dashboard
+
+;; TODO - Test that if a Dashboard has already been shared we reüse the existing UUID
+
+
+;;; ------------------------------------------------------------ DELETE /api/dashboard/:id/public_link
+
+;; TODO - Test that we *cannot* unshare a Dashboard if we are not admins
+
+;; TODO - Test that we get a 404 if Dashboard isn't shared
+
+;; TODO - Test that we get a 404 if Dashboard doesn't exist
+
+;; TODO - Test that we can unshare a Dashboard

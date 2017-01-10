@@ -556,3 +556,31 @@
     (perms/revoke-permissions! (perms-group/all-users) (u/get-id database))
     (perms/grant-collection-readwrite-permissions! (perms-group/all-users) collection)
     (POST-card-collections! :rasta 403 collection [card-1 card-2])))
+
+
+;;; +----------------------------------------------------------------------------------------------------------------------------------------------------------------+
+;;; |                                                                    PUBLIC SHARING ENDPOINTS                                                                    |
+;;; +----------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+;;; ------------------------------------------------------------ POST /api/card/:id/public_link ------------------------------------------------------------
+
+;; TODO - Test that we *cannot* share a Card if we aren't admins
+
+;; TODO - Test that we *cannot* share a Card if the setting is disabled
+
+;; TODO - Test that we get a 404 if the Card doesn't exist
+
+;; TODO - Test that we can share a Card
+
+;; TODO - Test that if a Card has already been shared we reüse the existing UUID
+
+
+;;; ------------------------------------------------------------ DELETE /api/card/:id/public_link
+
+;; TODO - Test that we *cannot* unshare a Card if we are not admins
+
+;; TODO - Test that we get a 404 if Card isn't shared
+
+;; TODO - Test that we get a 404 if Card doesn't exist
+
+;; TODO - Test that we can unshare a Card
