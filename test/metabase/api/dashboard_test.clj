@@ -453,6 +453,8 @@
 
 ;; TODO - Test that we *cannot* share a Dashboard if the setting is disabled
 
+;; TODO - Test that we *cannot* share a Dashboard if the Dashboard has been archived
+
 ;; TODO - Test that we get a 404 if the Dashboard doesn't exist
 
 ;; TODO - Test that we can share a Dashboard

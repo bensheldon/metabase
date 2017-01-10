@@ -568,6 +568,8 @@
 
 ;; TODO - Test that we *cannot* share a Card if the setting is disabled
 
+;; TODO - Test that we *cannot* share a Card if the Card has been archived
+
 ;; TODO - Test that we get a 404 if the Card doesn't exist
 
 ;; TODO - Test that we can share a Card

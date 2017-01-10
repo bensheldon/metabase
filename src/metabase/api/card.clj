@@ -336,6 +336,7 @@
                   :constraints constraints)
         options {:executed-by *current-user-id*
                  :card-id     card-id}]
+    (check-404 (not (:archived card))) ; if Card has been archived just return a 404
     (qp/dataset-query query options)))
 
 (defendpoint POST "/:card-id/query"
