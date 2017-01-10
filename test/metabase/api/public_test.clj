@@ -39,6 +39,14 @@
 (defn- add-card-to-dashboard! [public-card public-dashboard]
   (db/insert! DashboardCard :dashboard_id (:dashboard_id public-dashboard), :card_id (:card_id public-card)))
 
+(defmacro with-temp-public-dashboard-and-card {:style/indent 1} [[dashboard-binding card-binding] & body]
+  `(with-temp-public-dashboard [dash#]
+     (with-temp-public-card [card#]
+       (add-card-to-dashboard! card# dash#)
+       (let [~dashboard-binding dash#
+             ~card-binding      card#]
+         ~@body))))
+
 
 
 ;;; ------------------------------------------------------------ POST /api/public/card/:uuid ------------------------------------------------------------
@@ -110,37 +118,76 @@
 (defn- fetch-public-dashboard [{uuid :uuid}]
   (-> (http/client :get 200 (str "public/dashboard/" uuid))
       (select-keys [:name :ordered_cards])
+      (update :name boolean)
       (update :ordered_cards count)))
 
 ;; Check that we can fetch a PublicDashboard
 (expect
-  {:name "My Really Cool Public Dashboard", :ordered_cards 1}
+  {:name true, :ordered_cards 1}
   (tu/with-temporary-setting-values [enable-public-sharing true]
-    (with-temp-public-dashboard [dash {:name "My Really Cool Public Dashboard"}]
-      (with-temp-public-card [card]
-        (add-card-to-dashboard! card dash)
-        (fetch-public-dashboard dash)))))
+    (with-temp-public-dashboard-and-card [dash card]
+      (fetch-public-dashboard dash))))
 
 ;; Check that we don't see Cards that have been archived
 (expect
-  {:name "Less-Cool Public Dashboard", :ordered_cards 0}
+  {:name true, :ordered_cards 0}
   (tu/with-temporary-setting-values [enable-public-sharing true]
-    (with-temp-public-dashboard [dash {:name "Less-Cool Public Dashboard"}]
-      (with-temp-public-card [card {:archived true}]
-        (add-card-to-dashboard! card dash)
-        (fetch-public-dashboard dash)))))
+    (with-temp-public-dashboard-and-card [dash card]
+      (db/update! Card (:card_id card), :archived true)
+      (fetch-public-dashboard dash))))
 
 
 ;;; ------------------------------------------------------------ GET /api/public/dashboard/:uuid/card/:card-id ------------------------------------------------------------
 
-;; TODO Check that we *cannot* exec PublicCard via PublicDashboard if setting is disabled
+;; Check that we *cannot* exec PublicCard via PublicDashboard if setting is disabled
+(expect
+  "Public sharing is not enabled."
+  (tu/with-temporary-setting-values [enable-public-sharing false]
+    (with-temp-public-dashboard-and-card [dash card]
+      (http/client :get 400 (str "public/dashboard/" (:uuid dash) "/card/" (:card_id card))))))
 
-;; TODO Check that we get a 404 if PublicDashboard doesn't exist
+;; Check that we get a 404 if PublicDashboard doesn't exist
+(expect
+  "Not found."
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard-and-card [_ card]
+      (http/client :get 404 (str "public/dashboard/" (UUID/randomUUID) "/card/" (:card_id card))))))
 
-;; TODO Check that we get a 404 if PublicCard doesn't exist
 
-;; TODO Check that we *cannot* execute a PublicCard via a PublicDashboard if the Card has been archived
+;; Check that we get a 404 if PublicCard doesn't exist
+(expect
+  "Not found."
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard-and-card [dash _]
+      (http/client :get 404 (str "public/dashboard/" (:uuid dash) "/card/" Integer/MAX_VALUE)))))
 
-;; TODO Check that we can exec a PublicCard via a PublicDashboard
+;; Check that we get a 404 if the Card does exist but it's not part of this Dashboard
+(expect
+  "Not found."
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard-and-card [dash _]
+      (tu/with-temp Card [card]
+        (http/client :get 404 (str "public/dashboard/" (:uuid dash) "/card/" (u/get-id card)))))))
 
-;; TODO Check that we can exec a PublicCard via a PublicDashboard with `?parameters`
+;; Check that we *cannot* execute a PublicCard via a PublicDashboard if the Card has been archived
+(expect
+  "Not found."
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard-and-card [dash card]
+      (db/update! Card (:card_id card), :archived true)
+      (http/client :get 404 (str "public/dashboard/" (:uuid dash) "/card/" (:card_id card))))))
+
+;; Check that we can exec a PublicCard via a PublicDashboard
+(expect
+  [[100]]
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard-and-card [dash card]
+      (qp-test/rows (http/client :get 200 (str "public/dashboard/" (:uuid dash) "/card/" (:card_id card)))))))
+
+;; Check that we can exec a PublicCard via a PublicDashboard with `?parameters`
+(expect
+  [{:type "category", :value 2}]
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard-and-card [dash card]
+      (get-in (http/client :get 200 (str "public/dashboard/" (:uuid dash) "/card/" (:card_id card)), :parameters (json/encode [{:type "category", :value 2}]))
+              [:json_query :parameters]))))
