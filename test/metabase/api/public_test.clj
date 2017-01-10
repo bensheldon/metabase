@@ -2,9 +2,11 @@
   "Tests for `api/public/` endpoints."
   (:require [cheshire.core :as json]
             [expectations :refer :all]
+            [metabase.db :as db]
             [metabase.http-client :as http]
             (metabase.models [card :refer [Card]]
                              [dashboard :refer [Dashboard]]
+                             [dashboard-card :refer [DashboardCard]]
                              [public-card :refer [PublicCard]]
                              [public-dashboard :refer [PublicDashboard]])
             metabase.public-settings ; for `enable-public-sharing
@@ -14,6 +16,9 @@
             [metabase.test.util :as tu]
             [metabase.util :as u])
   (:import java.util.UUID))
+
+
+;;; ------------------------------------------------------------ Helper Fns ------------------------------------------------------------
 
 (defn- count-of-venues-card []
   {:dataset_query {:database (data/id)
@@ -25,6 +30,16 @@
   `(tu/with-temp* [Card       [card#    (merge (count-of-venues-card) ~card)]
                    PublicCard [~binding {:card_id (u/get-id card#)}]]
      ~@body))
+
+(defmacro ^:private with-temp-public-dashboard {:style/indent 1} [[binding & [dashboard]] & body]
+  `(tu/with-temp* [Dashboard       [dashboard# ~dashboard]
+                   PublicDashboard [~binding   {:dashboard_id (u/get-id dashboard#)}]]
+     ~@body))
+
+(defn- add-card-to-dashboard! [public-card public-dashboard]
+  (db/insert! DashboardCard :dashboard_id (:dashboard_id public-dashboard), :card_id (:card_id public-card)))
+
+
 
 ;;; ------------------------------------------------------------ POST /api/public/card/:uuid ------------------------------------------------------------
 
@@ -79,13 +94,41 @@
 
 ;;; ------------------------------------------------------------ GET /api/public/dashboard/:uuid ------------------------------------------------------------
 
-;; TODO Check that we *cannot* fetch PublicDashboard if setting is disabled
+;; Check that we *cannot* fetch PublicDashboard if setting is disabled
+(expect
+  "Public sharing is not enabled."
+  (tu/with-temporary-setting-values [enable-public-sharing false]
+    (with-temp-public-dashboard [{uuid :uuid}]
+      (http/client :get 400 (str "public/dashboard/" uuid)))))
 
-;; TODO Check that we get a 404 if the PublicDashboard doesn't exist
+;; Check that we get a 404 if the PublicDashboard doesn't exis
+(expect
+  "Not found."
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (http/client :get 404 (str "public/dashboard/" (UUID/randomUUID)))))
 
-;; TODO Check that we don't see Cards that have been archived
+(defn- fetch-public-dashboard [{uuid :uuid}]
+  (-> (http/client :get 200 (str "public/dashboard/" uuid))
+      (select-keys [:name :ordered_cards])
+      (update :ordered_cards count)))
 
-;; TODO Check that we can fetch a PublicDashboard
+;; Check that we can fetch a PublicDashboard
+(expect
+  {:name "My Really Cool Public Dashboard", :ordered_cards 1}
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard [dash {:name "My Really Cool Public Dashboard"}]
+      (with-temp-public-card [card]
+        (add-card-to-dashboard! card dash)
+        (fetch-public-dashboard dash)))))
+
+;; Check that we don't see Cards that have been archived
+(expect
+  {:name "Less-Cool Public Dashboard", :ordered_cards 0}
+  (tu/with-temporary-setting-values [enable-public-sharing true]
+    (with-temp-public-dashboard [dash {:name "Less-Cool Public Dashboard"}]
+      (with-temp-public-card [card {:archived true}]
+        (add-card-to-dashboard! card dash)
+        (fetch-public-dashboard dash)))))
 
 
 ;;; ------------------------------------------------------------ GET /api/public/dashboard/:uuid/card/:card-id ------------------------------------------------------------

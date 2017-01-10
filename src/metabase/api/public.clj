@@ -14,7 +14,8 @@
                              [public-dashboard :refer [PublicDashboard]])
             [metabase.public-settings :as public-settings]
             [metabase.query-processor :as qp]
-            [metabase.util.schema :as su]))
+            [metabase.util.schema :as su]
+            [metabase.util :as u]))
 
 ;;; ------------------------------------------------------------ Public Cards ------------------------------------------------------------
 
@@ -46,7 +47,8 @@
   "Fetch a publically-accessible Dashboard. Does not require auth credentials. Public sharing must be enabled."
   [uuid]
   (api/check-public-sharing-enabled)
-  (hydrate (Dashboard (uuid->dashboard-id uuid)) :ordered_cards))
+  (-> (hydrate (Dashboard (uuid->dashboard-id uuid)) :ordered_cards)
+      (update :ordered_cards (partial remove :archived))))
 
 (api/defendpoint GET "/dashboard/:uuid/card/:card-id"
   "Fetch the results for a Card in a publically-accessible Dashboard. Does not require auth credentials. Public sharing must be enabled."
