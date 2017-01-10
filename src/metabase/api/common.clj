@@ -9,6 +9,7 @@
             [metabase.api.common.internal :refer :all]
             [metabase.db :as db]
             [metabase.models.interface :as models]
+            [metabase.public-settings :as public-settings]
             [metabase.util :as u]))
 
 (declare check-403 check-404)
@@ -292,3 +293,12 @@
    (write-check (entity id)))
   ([entity id & other-conditions]
    (write-check (apply db/select-one entity :id id other-conditions))))
+
+
+;;; ------------------------------------------------------------ OTHER HELPER FNS ------------------------------------------------------------
+
+(defn check-public-sharing-enabled
+  "Check that the `public-sharing-enabled` Setting is `true`, or throw a `400`."
+  []
+  (check (public-settings/enable-public-sharing)
+    [400 "Public sharing is not enabled."]))
